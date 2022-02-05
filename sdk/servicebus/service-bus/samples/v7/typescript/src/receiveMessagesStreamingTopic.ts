@@ -24,24 +24,32 @@ dotenv.config();
 
 // Define connection string and related Service Bus entity names here
 const connectionString = process.env.SERVICEBUS_CONNECTION_STRING || "<connection string>";
-const queueName = process.env.QUEUE_NAME || "<queue name>";
+const topicName = process.env.TOPIC_NAME_WITH_SESSIONS || "<queue name>";
+const subscriptionName = process.env.SUBSCRIPTION_NAME || "<subscription name>";
+const subscriptionNoSessionName = process.env.SUBSCRIPTION_NO_SESSION_NAME || "<subscription name>";
+const sessionName = '123';
 
 export async function main() {
+
   const sbClient = new ServiceBusClient(connectionString);
 
-  // - If receiving from a subscription you can use the createReceiver(topicName, subscriptionName) overload
-  // instead.
-  // - See session.ts for how to receive using sessions.
-  const receiver = sbClient.createReceiver(queueName);
-
   try {
+    /**
+     * - If receiving from a subscription you can use the createReceiver(topicName, subscriptionName) overload instead.
+     * - See session.ts for how to receive using sessions.
+     *
+     * - Following here are 2 examples: for 'subscription' and 'subscription with session'
+     */
+    const receiver = await sbClient.acceptSession(topicName, subscriptionName, sessionName);
+    // const receiver = await sbClient.createReceiver(topicName, subscriptionNoSessionName);
+
     const subscription = receiver.subscribe({
       // After executing this callback you provide, the receiver will remove the message from the queue if you
       // have not already settled the message in your callback.
       // You can disable this by passing `false` to the `autoCompleteMessages` option in the `subscribe()` method.
       // If your callback _does_ throw an error before the message is settled, then it will be abandoned.
       processMessage: async (brokeredMessage: ServiceBusReceivedMessage) => {
-        console.log(`Received message: ${brokeredMessage.body}`);
+        console.log(`\nReceived message: ${brokeredMessage.body}`);
       },
       // This callback will be called for any error that occurs when either in the receiver when receiving the message
       // or when executing your `processMessage` callback or when the receiver automatically completes or abandons the message.
@@ -67,6 +75,7 @@ export async function main() {
               console.log(`Message lock lost for message`, args.error);
               break;
             case "ServiceBusy":
+              console.log('service busy----------');
               // choosing an arbitrary amount of time to wait.
               await delay(1000);
               break;
@@ -79,9 +88,13 @@ export async function main() {
     console.log(`Receiving messages for 20 seconds before exiting...`);
     await delay(0.2 * 1000);
 
-    console.log(`Closing...`);
+    console.log(`receiver Closing...`);
     await receiver.close();
-  } finally {
+    console.log(`receiver Closed ...`);
+  } catch (err) {
+    console.log('-----------------error----', err);
+  }finally {
+    console.log(`-----serviceBus client connection closed------`);
     await sbClient.close();
   }
 }

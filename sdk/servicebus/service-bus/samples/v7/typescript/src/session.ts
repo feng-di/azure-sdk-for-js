@@ -87,6 +87,8 @@ async function receiveMessages(sbClient: ServiceBusClient, sessionId: string) {
     console.log(`Creating session receiver for session '${sessionId}'`);
     const receiver = await sbClient.acceptSession(queueName, sessionId);
 
+
+
     const subscribePromise = new Promise((_, reject) => {
       const processMessage = async (message: ServiceBusMessage) => {
         console.log(`Received: ${message.sessionId} - ${message.body} `);

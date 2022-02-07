@@ -18,7 +18,7 @@ import {
   isServiceBusError,
 } from "@azure/service-bus";
 import * as dotenv from "dotenv";
-// import { AbortController } from "@azure/abort-controller";
+import { AbortController } from "@azure/abort-controller";
 
 dotenv.config();
 
@@ -32,7 +32,7 @@ const delayOnErrorMs = 0.01 * 1000;
 
 // This can be used control when the round-robin processing will terminate
 // by calling abortController.abort().
-// const abortController = new AbortController();
+const abortController = new AbortController();
 
 // Called just before we start processing the first message of a session.
 // NOTE: This function is used only in the sample and is not part of the Service Bus library.
@@ -107,11 +107,10 @@ async function receiveFromNextSession(serviceBusClient: ServiceBusClient): Promi
     return;
   }
 
-  // only ocnsole log function
   await sessionAccepted(sessionReceiver.sessionId);
 
   const sessionFullyRead = new Promise(async (resolveSessionAsFullyRead, rejectSessionWithError) => {
-    console.log(`\n------enter sessionFullyRead function-------\n`);
+    console.log(`\n------enter sessionFullyRead Promise-------\n`);
 
     const refreshTimer = createRefreshableTimer(sessionIdleTimeoutMs, resolveSessionAsFullyRead);
     refreshTimer();
@@ -126,17 +125,19 @@ async function receiveFromNextSession(serviceBusClient: ServiceBusClient): Promi
           rejectSessionWithError(args.error);
         },
       },
-      // {
-      //   abortSignal: abortController.signal,
-      // }
+      {
+        abortSignal: abortController.signal,
+      }
     );
-
-    await delay(1000);
-    resolveSessionAsFullyRead(`----sessionReceiver.sessionId ${sessionReceiver.sessionId} set to resolved -----`);
+    //
+    // await delay(1000);
+    // resolveSessionAsFullyRead(`----sessionReceiver.sessionId ${sessionReceiver.sessionId} set to resolved -----`);
   });
 
   try {
     await sessionFullyRead;
+    console.log(`-----------sessionFullyRead state:----------`, sessionFullyRead);
+
     await sessionClosed("idle_timeout", sessionReceiver.sessionId);
   } catch (err) {
     await processError(<Error>err, sessionReceiver.sessionId);
@@ -154,16 +155,16 @@ async function roundRobinThroughAvailableSessions(): Promise<void> {
   for (let i = 0; i < maxSessionsToProcessSimultaneously; ++i) {
     receiverPromises.push(
       (async () => {
-        // while (!abortController.signal.aborted) {
+        while (!abortController.signal.aborted) {
           await receiveFromNextSession(serviceBusClient);
-        // }
+        }
       })()
     );
   }
 
-  console.log('----------', receiverPromises);
-
+  console.log('------Number of session to process simultaneously----\n', receiverPromises);
   console.log(`Listening for available sessions...\n`);
+
   await Promise.all(receiverPromises);
 
   await serviceBusClient.close();

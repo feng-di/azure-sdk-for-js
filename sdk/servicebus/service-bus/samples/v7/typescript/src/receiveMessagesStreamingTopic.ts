@@ -27,10 +27,11 @@ const connectionString = process.env.SERVICEBUS_CONNECTION_STRING || "<connectio
 const topicName = process.env.TOPIC_NAME_WITH_SESSIONS || "<queue name>";
 const subscriptionName = process.env.SUBSCRIPTION_NAME || "<subscription name>";
 const subscriptionNoSessionName = process.env.SUBSCRIPTION_NO_SESSION_NAME || "<subscription name>";
-const sessionName = '123';
+const sessionName = 'session-2';
+
+const sessionIdleTimeoutMs = 0.1 * 1000;
 
 export async function main() {
-
   const sbClient = new ServiceBusClient(connectionString);
 
   try {
@@ -85,17 +86,21 @@ export async function main() {
     });
 
     // Waiting long enough before closing the receiver to receive messages
-    console.log(`Receiving messages for 20 seconds before exiting...`);
-    await delay(0.2 * 1000);
+    console.log(`\nReceiving messages for ${sessionIdleTimeoutMs} milliseconds before exiting...\n`);
+    await delay(sessionIdleTimeoutMs);
 
-    console.log(`receiver Closing...`);
-    await receiver.close();
-    console.log(`receiver Closed ...`);
+    console.log('---subscription----', subscription);
+    // await subscription.close();
+    // console.log('---subscription closed----', subscription);
+
+    // console.log(`receiver Closing...`);
+    // await receiver.close();
+    // console.log(`receiver Closed ...`);
   } catch (err) {
     console.log('-----------------error----', err);
   }finally {
-    console.log(`-----serviceBus client connection closed------`);
-    await sbClient.close();
+    // console.log(`-----serviceBus client connection closed------`);
+    // await sbClient.close();
   }
 }
 

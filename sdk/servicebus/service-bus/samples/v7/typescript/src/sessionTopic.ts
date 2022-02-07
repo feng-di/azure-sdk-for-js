@@ -59,8 +59,10 @@ export async function main() {
     await sendMessage(sbClient, listOfScientists[8], "session-2");
     await sendMessage(sbClient, listOfScientists[9], "session-2");
 
-    await receiveMessages(sbClient, "session-1");
-    await receiveMessages(sbClient, "session-2");
+    if(process.argv[2] === 'withReceive'){
+      await receiveMessages(sbClient, "session-1");
+      await receiveMessages(sbClient, "session-2");
+    }
   } finally {
     await sbClient.close();
   }
@@ -108,7 +110,7 @@ async function receiveMessages(sbClient: ServiceBusClient, sessionId: string) {
     const now = Date.now();
 
     if (endDate == null) {
-      endDate = now + 20000;
+      endDate = now + 2 * 1000;
     }
 
     let remainingTime: number = endDate - now;

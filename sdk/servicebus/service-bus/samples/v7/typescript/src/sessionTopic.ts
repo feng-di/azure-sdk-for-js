@@ -18,6 +18,8 @@ import { delay, ProcessErrorArgs, ServiceBusClient, ServiceBusMessage } from "@a
 
 // Load the .env file if it exists
 import * as dotenv from "dotenv";
+import * as uuid from 'uuid';
+
 dotenv.config();
 
 // Define connection string and related Service Bus entity names here
@@ -45,19 +47,36 @@ export async function main() {
   const sbClient = new ServiceBusClient(connectionString);
 
   try {
-    console.log(`Sending 5 messages to 'session-1'`);
-    await sendMessage(sbClient, listOfScientists[0], "session-1");
-    await sendMessage(sbClient, listOfScientists[1], "session-1");
-    await sendMessage(sbClient, listOfScientists[2], "session-1");
-    await sendMessage(sbClient, listOfScientists[3], "session-1");
-    await sendMessage(sbClient, listOfScientists[4], "session-1");
+    console.log(`\nSending 10 messages to random session\n`);
+    await sendMessage(sbClient, listOfScientists[0]);
+    // await sendMessage(sbClient, listOfScientists[1]);
+    // await sendMessage(sbClient, listOfScientists[2]);
 
-    console.log(`Sending 5 messages to 'session-2'`);
-    await sendMessage(sbClient, listOfScientists[5], "session-2");
-    await sendMessage(sbClient, listOfScientists[6], "session-2");
-    await sendMessage(sbClient, listOfScientists[7], "session-2");
-    await sendMessage(sbClient, listOfScientists[8], "session-2");
-    await sendMessage(sbClient, listOfScientists[9], "session-2");
+    // console.log(`\nSending 5 messages to 'session-1'\n`);
+    // await sendMessage(sbClient, listOfScientists[0], "session-1");
+    // await sendMessage(sbClient, listOfScientists[1], "session-1");
+    // await sendMessage(sbClient, listOfScientists[2], "session-1");
+    // await sendMessage(sbClient, listOfScientists[3], "session-1");
+    // await sendMessage(sbClient, listOfScientists[4], "session-1");
+    //
+    // console.log(`\nSending 5 messages to 'session-2'\n`);
+    // await sendMessage(sbClient, listOfScientists[5], "session-2");
+    // await sendMessage(sbClient, listOfScientists[6], "session-2");
+    // await sendMessage(sbClient, listOfScientists[7], "session-2");
+    // await sendMessage(sbClient, listOfScientists[8], "session-2");
+    // await sendMessage(sbClient, listOfScientists[9], "session-2");
+    //
+    // console.log(`\nSending 10 messages to random session\n`);
+    // await sendMessage(sbClient, listOfScientists[0]);
+    // await sendMessage(sbClient, listOfScientists[1]);
+    // await sendMessage(sbClient, listOfScientists[2]);
+    // await sendMessage(sbClient, listOfScientists[3]);
+    // await sendMessage(sbClient, listOfScientists[4]);
+    // await sendMessage(sbClient, listOfScientists[5]);
+    // await sendMessage(sbClient, listOfScientists[6]);
+    // await sendMessage(sbClient, listOfScientists[7]);
+    // await sendMessage(sbClient, listOfScientists[8]);
+    // await sendMessage(sbClient, listOfScientists[9]);
 
     if(process.argv[2] === 'withReceive'){
       await receiveMessages(sbClient, "session-1");
@@ -68,14 +87,19 @@ export async function main() {
   }
 }
 
-async function sendMessage(sbClient: ServiceBusClient, scientist: any, sessionId: string) {
+async function sendMessage(sbClient: ServiceBusClient, scientist: any, sessionId?: string) {
   // createSender() also works with topics
   const sender = sbClient.createSender(topicName);
+
+  if (!sessionId) {
+    sessionId = uuid.v4();
+  }
 
   const message: ServiceBusMessage = {
     body: `${scientist.firstName} ${scientist.lastName}`,
     subject: "Scientist",
     sessionId: sessionId,
+    messageId: uuid.v4(),
   };
 
   console.log(`Sending message: "${message.body}" to "${sessionId}"`);

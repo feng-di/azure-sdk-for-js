@@ -26,9 +26,9 @@ const serviceBusConnectionString = process.env.SERVICEBUS_CONNECTION_STRING || "
 const topicName = process.env.TOPIC_NAME_WITH_SESSIONS || "<queue name>";
 const subscriptionName = process.env.SUBSCRIPTION_NAME || "<subscription name>";
 
-const maxSessionsToProcessSimultaneously = 3;
-const sessionIdleTimeoutMs = 0.01 * 1000;
-const delayOnErrorMs = 0.01 * 1000;
+const maxSessionsToProcessSimultaneously = 1;
+const sessionIdleTimeoutMs = 3 * 1000;
+const delayOnErrorMs = 1 * 1000;
 
 // This can be used control when the round-robin processing will terminate
 // by calling abortController.abort().
@@ -75,7 +75,7 @@ function createRefreshableTimer(timeoutMs: number, resolve: Function): () => voi
   return () => {
     clearTimeout(timer);
     timer = setTimeout(() => {
-      console.log('------------session fully read resolve -----');
+      console.log(`\n------------> session fully read resolve - ${timeoutMs}-----\n`);
       resolve()
     }, timeoutMs);
   };
@@ -83,22 +83,25 @@ function createRefreshableTimer(timeoutMs: number, resolve: Function): () => voi
 
 // Queries Service Bus for the next available session and processes it.
 async function receiveFromNextSession(serviceBusClient: ServiceBusClient): Promise<void> {
-  console.log(`------enter receiveFromNextSession function-------\n`);
+  console.log(`------> Enter receiveFromNextSession function [delay 1 seconds ]-------\n`);
+  await delay(1000);
 
   let sessionReceiver: ServiceBusSessionReceiver;
 
   try {
     sessionReceiver = await serviceBusClient.acceptNextSession(topicName, subscriptionName,{
       maxAutoLockRenewalDurationInMs: 0,
+      receiveMode: 'receiveAndDelete'
     });
 
   } catch (err) {
-    console.log('--------------session receiver create error-----', (<Error>err).message);
+    console.log('------> session receiver create error-----', err);
+
     if (
       isServiceBusError(err) &&
       (err.code === "SessionCannotBeLocked" || err.code === "ServiceTimeout")
     ) {
-      console.log(`INFO: no available sessions, sleeping for ${delayOnErrorMs}`);
+      console.log(`------>INFO: no available sessions, sleeping for ${delayOnErrorMs}`);
     } else {
       await processError(<Error>err, undefined);
     }
@@ -110,7 +113,7 @@ async function receiveFromNextSession(serviceBusClient: ServiceBusClient): Promi
   await sessionAccepted(sessionReceiver.sessionId);
 
   const sessionFullyRead = new Promise(async (resolveSessionAsFullyRead, rejectSessionWithError) => {
-    console.log(`\n------enter sessionFullyRead Promise-------\n`);
+    console.log(`\n------> enter sessionFullyRead subscriber Promise-------\n`);
 
     const refreshTimer = createRefreshableTimer(sessionIdleTimeoutMs, resolveSessionAsFullyRead);
     refreshTimer();
@@ -118,10 +121,16 @@ async function receiveFromNextSession(serviceBusClient: ServiceBusClient): Promi
     sessionReceiver.subscribe(
       {
         async processMessage(msg) {
+          console.log(`------> enter processMessage function [delay 1 seconds ]-------\n`);
+          await delay(1000);
+
           refreshTimer();
           await processMessage(msg);
         },
         async processError(args) {
+          console.log(`------> enter processError function [delay 1 seconds ]-------\n`);
+          await delay(1000);
+
           rejectSessionWithError(args.error);
         },
       },
@@ -135,8 +144,8 @@ async function receiveFromNextSession(serviceBusClient: ServiceBusClient): Promi
   });
 
   try {
-    await sessionFullyRead;
-    console.log(`-----------sessionFullyRead state:----------`, sessionFullyRead);
+    let sessionFullyReadValue =  await sessionFullyRead;
+    console.log(`-----------sessionFullyRead state:----------`, sessionFullyRead, sessionFullyReadValue);
 
     await sessionClosed("idle_timeout", sessionReceiver.sessionId);
   } catch (err) {
@@ -148,22 +157,24 @@ async function receiveFromNextSession(serviceBusClient: ServiceBusClient): Promi
 }
 
 async function roundRobinThroughAvailableSessions(): Promise<void> {
-  const serviceBusClient = new ServiceBusClient(serviceBusConnectionString);
+  console.log('--->Enter roundRobinThroughAvailableSessions function----\n');
 
+  const serviceBusClient = new ServiceBusClient(serviceBusConnectionString);
   const receiverPromises: Promise<void>[] = [];
 
   for (let i = 0; i < maxSessionsToProcessSimultaneously; ++i) {
     receiverPromises.push(
       (async () => {
         while (!abortController.signal.aborted) {
+          console.log(`\n--->Enter while to create new session---\n`);
           await receiveFromNextSession(serviceBusClient);
         }
       })()
     );
   }
 
-  console.log('------Number of session to process simultaneously----\n', receiverPromises);
-  console.log(`Listening for available sessions...\n`);
+  console.log('---> Number of session to process simultaneously----\n', receiverPromises);
+  console.log(`---> Listening for available sessions...\n`);
 
   await Promise.all(receiverPromises);
 
